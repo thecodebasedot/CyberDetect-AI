@@ -14,6 +14,7 @@ Examples
   python main.py analyze --horizon 30     # print the full growth report
   python main.py dashboard                # write dashboard/index.html
   python main.py demo                     # generate -> train -> analyze -> dashboard
+  python main.py agent                     # run one Autonomous Growth Agent cycle
   python main.py serve                    # launch the FastAPI backend
 """
 
@@ -75,6 +76,28 @@ def cmd_demo(args: argparse.Namespace) -> None:
     print(f"\nDashboard: {path}")
 
 
+def cmd_agent(args: argparse.Namespace) -> None:
+    from growthmind.agent import AutonomousGrowthAgent
+    from growthmind.connectors import available_sources, get_connector
+
+    if args.source not in available_sources():
+        print(f"Unknown source '{args.source}'. Available: {', '.join(available_sources())}")
+        raise SystemExit(2)
+
+    connector = get_connector(args.source)
+    if not connector.is_available():
+        print(f"Source '{args.source}' is not available (missing credentials). "
+              "Falling back to --source local.")
+        connector = get_connector("local")
+
+    agent = AutonomousGrowthAgent(connector=connector, autonomy=args.autonomy)
+    print(f"Running Autonomous Growth Agent (source={connector.name}, "
+          f"autonomy={args.autonomy}) ...\n")
+    report = agent.run_cycle(horizon=args.horizon)
+    print(report.markdown())
+    print(f"\nReport saved to {report.report_path}")
+
+
 def cmd_serve(args: argparse.Namespace) -> None:
     import uvicorn
     print(f"Starting GrowthMind AI API on http://{args.host}:{args.port} ...")
@@ -130,6 +153,14 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("demo", help="run generate -> train -> analyze -> dashboard")
     p.add_argument("--horizon", type=int, default=30)
     p.set_defaults(func=cmd_demo)
+
+    p = sub.add_parser("agent", help="run one Autonomous Growth Agent cycle")
+    p.add_argument("--source", default="local",
+                   help="data source: local | gsc | ga4 (default: local)")
+    p.add_argument("--autonomy", choices=["propose", "auto"], default="propose",
+                   help="'propose' (human approves) or 'auto' (simulate low-risk actions)")
+    p.add_argument("--horizon", type=int, default=30)
+    p.set_defaults(func=cmd_agent)
 
     p = sub.add_parser("serve", help="launch the FastAPI backend")
     p.add_argument("--host", default="127.0.0.1")

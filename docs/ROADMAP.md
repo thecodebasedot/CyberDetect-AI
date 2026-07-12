@@ -26,18 +26,24 @@ The headline differentiator: GrowthMind stops merely *reporting* and starts
 *acting*.
 
 ### Live data connectors
-- [ ] Google Search Console API
-- [ ] Google Analytics 4 (Data API)
+- [x] Pluggable `DataSource` interface + registry (`growthmind/connectors/`)
+- [x] Local / synthetic connector (default, fully working offline)
+- [ ] Google Search Console API (interface + credential-gated stub shipped)
+- [ ] Google Analytics 4 Data API (interface + credential-gated stub shipped)
 - [ ] Bing Webmaster Tools
 - [ ] Shopify / WordPress content APIs
 
 ### Autonomous Growth Agent
-With explicit, scoped permission the agent will, on a daily schedule:
-- [ ] Pull fresh GSC/GA data and detect abnormal changes
-- [ ] Identify pages with SEO problems and rank fixes by expected impact
-- [ ] Suggest new content topics and the highest-ROI pages to update
-- [ ] Produce a daily Growth Report and notify the owner
-- [ ] (Opt-in) apply low-risk fixes automatically and log every action
+On a schedule, the agent:
+- [x] Syncs data through a pluggable connector interface (`growthmind/connectors/`)
+- [x] Detects abnormal changes by diffing each cycle's KPIs vs. the last snapshot
+- [x] Ranks fixes by expected impact and builds a prioritized action plan
+- [x] Produces a dated Growth Report (`reports/growth_report_NNNN.md`)
+- [x] Human-in-the-loop autonomy: `propose` (default) vs `auto` (simulates
+      low-risk actions only, logged to `reports/agent_actions.log`)
+- [ ] Pull *live* GSC/GA data (needs the connectors below + credentials)
+- [ ] Actually execute approved fixes once a real platform is connected
+- [ ] Notify the owner (email / push) on each cycle
 
 ### Platform
 - [x] React + Tailwind frontend consuming the existing FastAPI endpoints (`frontend/`)

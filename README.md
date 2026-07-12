@@ -31,6 +31,7 @@ clone, train, and see results in under a minute — no API keys, no accounts.
 | **Recommendation Engine** | rules + model signals | prioritized fixes with impact estimates |
 | **Health Score** | weighted composite | SEO · Performance · UX · Security · Content |
 | **Growth Strategy** | priority bucketing | today / this week / this month plan |
+| **Autonomous Agent** | snapshot diffing + planning | daily report, change alerts, action plan |
 
 Plus a **FastAPI** backend, a **self-contained HTML dashboard**, and a
 **React + Tailwind dashboard** (`frontend/`) that consumes the API.
@@ -55,6 +56,7 @@ python main.py generate            # build the 3 synthetic datasets
 python main.py train               # fit & persist all 5 models
 python main.py analyze --horizon 30  # print the full growth report
 python main.py dashboard           # write dashboard/index.html
+python main.py agent               # run one Autonomous Growth Agent cycle
 python main.py serve               # launch the FastAPI backend (docs at /docs)
 ```
 
@@ -147,6 +149,50 @@ Interactive docs at `http://127.0.0.1:8000/docs`.
 
 ---
 
+## Autonomous Growth Agent (v2)
+
+The agent runs the whole analysis on a schedule and reports **what changed**
+since last time, not just the current state:
+
+```bash
+python main.py agent                      # propose mode (human approves actions)
+python main.py agent --autonomy auto      # auto-simulate low-risk actions
+python main.py agent --source local       # pluggable data source (local | gsc | ga4)
+```
+
+Each cycle:
+1. **Syncs data** via a pluggable connector (`growthmind/connectors/`).
+2. **Diffs** today's KPIs against the previous cycle's snapshot → change alerts
+   (traffic drop, health regression, new anomalies, forecast shift).
+3. **Plans** a prioritized action list from the recommendations.
+4. **Writes** a dated Growth Report to `reports/growth_report_NNNN.md` and logs
+   actions to `reports/agent_actions.log`.
+
+**Autonomy is human-in-the-loop by default.** In `propose` mode the agent only
+suggests. In `auto` mode it may act on **low-risk** actions only — and because
+this build has no live platform connected, "acting" is *simulated* and logged,
+never executed. Real execution arrives with the live connectors, behind the same
+allow-list and an explicit opt-in.
+
+### Data connectors
+
+`growthmind/connectors/` defines a `DataSource` interface so the models never
+change when the data source does:
+
+| Source | Status |
+| ------ | ------ |
+| `local` | ✅ synthetic / local CSVs — the default, fully offline |
+| `gsc` | 🔒 Google Search Console — interface shipped, needs OAuth credentials |
+| `ga4` | 🔒 Google Analytics 4 — interface shipped, needs OAuth credentials |
+
+Schedule a daily cycle with cron:
+
+```cron
+0 7 * * *  cd /path/to/repo && python main.py agent --autonomy propose
+```
+
+---
+
 ## React dashboard (v2 frontend)
 
 A Vite + React + Tailwind dashboard lives in [`frontend/`](frontend/). It shows
@@ -179,6 +225,8 @@ GrowthMind-AI/
 │   │   ├── seo.py              # XGBoost SEO scorer
 │   │   ├── segmentation.py     # K-Means user segmentation
 │   │   └── anomaly.py          # Isolation Forest anomaly detector
+│   ├── connectors/             # pluggable data sources (local, gsc, ga4)
+│   ├── agent.py                # Autonomous Growth Agent
 │   ├── recommend.py            # AI recommendation engine
 │   ├── health.py               # website health score
 │   ├── strategy.py             # growth strategy builder
@@ -186,7 +234,9 @@ GrowthMind-AI/
 │   └── report.py               # self-contained HTML dashboard
 ├── api/app.py                  # FastAPI backend
 ├── frontend/                   # React + Tailwind dashboard (Vite)
-├── tests/test_growthmind.py    # pytest suite (12 tests)
+├── tests/                      # pytest suite (22 tests)
+│   ├── test_growthmind.py
+│   └── test_agent.py
 ├── datasets/  models/  dashboard/  reports/   # generated artifacts
 └── docs/                       # ARCHITECTURE.md · ROADMAP.md
 ```

@@ -18,6 +18,11 @@ datasets/*.csv
 dashboard/*.html
 reports/*
 
+# Agent-generated reports and state
+reports/growth_report_*.md
+reports/agent_snapshot.json
+reports/agent_actions.log
+
 # Keep the empty directories tracked
 !models/.gitkeep
 !datasets/.gitkeep

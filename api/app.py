@@ -94,6 +94,33 @@ def strategy():
     }
 
 
+@app.post("/api/agent/run")
+def agent_run(
+    autonomy: str = Query("propose", pattern="^(propose|auto)$"),
+    source: str = Query("local"),
+    horizon: int = Query(30, ge=1, le=180),
+):
+    """Run one Autonomous Growth Agent cycle and return its report."""
+    _require_trained()
+    from growthmind.agent import AutonomousGrowthAgent
+    from growthmind.connectors import get_connector
+
+    connector = get_connector(source)
+    if not connector.is_available():
+        connector = get_connector("local")
+
+    report = AutonomousGrowthAgent(connector=connector, autonomy=autonomy).run_cycle(horizon=horizon)
+    return {
+        "cycle": report.cycle,
+        "timestamp": report.timestamp,
+        "source": report.source_summary,
+        "kpis": report.kpis,
+        "alerts": [a.as_dict() for a in report.alerts],
+        "actions": [a.as_dict() for a in report.actions],
+        "report_path": report.report_path,
+    }
+
+
 @app.get("/dashboard", response_class=HTMLResponse)
 def dashboard(horizon: int = Query(30, ge=1, le=180)):
     _require_trained()
