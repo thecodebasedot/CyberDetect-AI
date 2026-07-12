@@ -1,0 +1,1 @@
+"""GrowthMind AI FastAPI backend."""
