@@ -40,7 +40,7 @@ With explicit, scoped permission the agent will, on a daily schedule:
 - [ ] (Opt-in) apply low-risk fixes automatically and log every action
 
 ### Platform
-- [ ] React + Tailwind frontend consuming the existing FastAPI endpoints
+- [x] React + Tailwind frontend consuming the existing FastAPI endpoints (`frontend/`)
 - [ ] PostgreSQL persistence + historical trend storage
 - [ ] Multi-site / multi-tenant support
 - [ ] Auth, roles, and an audit log for agent actions

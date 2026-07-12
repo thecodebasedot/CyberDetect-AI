@@ -32,7 +32,8 @@ clone, train, and see results in under a minute — no API keys, no accounts.
 | **Health Score** | weighted composite | SEO · Performance · UX · Security · Content |
 | **Growth Strategy** | priority bucketing | today / this week / this month plan |
 
-Plus a **FastAPI** backend and a **self-contained HTML dashboard**.
+Plus a **FastAPI** backend, a **self-contained HTML dashboard**, and a
+**React + Tailwind dashboard** (`frontend/`) that consumes the API.
 
 ---
 
@@ -146,6 +147,23 @@ Interactive docs at `http://127.0.0.1:8000/docs`.
 
 ---
 
+## React dashboard (v2 frontend)
+
+A Vite + React + Tailwind dashboard lives in [`frontend/`](frontend/). It shows
+the KPIs, forecast chart, health, segments, recommendations and strategy, and
+falls back to demo data when the backend is offline.
+
+```bash
+cd frontend
+npm install
+npm run dev          # http://localhost:5173 (proxies /api to the backend)
+```
+
+Run `python main.py serve` alongside it for live data. See
+[`frontend/README.md`](frontend/README.md) for details.
+
+---
+
 ## Project layout
 
 ```
@@ -167,6 +185,7 @@ GrowthMind-AI/
 │   ├── pipeline.py             # end-to-end orchestration
 │   └── report.py               # self-contained HTML dashboard
 ├── api/app.py                  # FastAPI backend
+├── frontend/                   # React + Tailwind dashboard (Vite)
 ├── tests/test_growthmind.py    # pytest suite (12 tests)
 ├── datasets/  models/  dashboard/  reports/   # generated artifacts
 └── docs/                       # ARCHITECTURE.md · ROADMAP.md
