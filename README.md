@@ -1,185 +1,278 @@
-# CyberDetect AI
+# 🧠 GrowthMind AI
 
-> **Network Intrusion Detection powered by an Isolation Forest anomaly detector.**
+> ### Predict. Optimize. Grow.
+>
+> An AI **growth-intelligence engine** that forecasts traffic & sales, scores
+> SEO health, segments customers, detects traffic anomalies, and turns it all
+> into a prioritized, one-click growth strategy.
 
-CyberDetect AI is a small, self-contained machine-learning system that flags
-suspicious network traffic **without needing labelled attack data**. It learns
-what "normal" traffic looks like and reports flows that stand out — the way a
-real network defender operates, since you can never enumerate every future
-attack in advance.
+GrowthMind AI answers the questions every online business struggles with:
 
-The whole project runs offline: it synthesizes a realistic network-flow
-dataset, trains the model, evaluates it, and scans traffic — all from a single
-CLI.
+- **Why is traffic falling?** → anomaly detection over daily KPIs
+- **Which pages can rank?** → SEO scoring + on-page recommendations
+- **What will next month look like?** → 7/30/90-day traffic & revenue forecasts
+- **Which visitors will convert?** → behavioural segmentation + CLV
+- **What should I do right now?** → an AI growth strategy (today / this week / this month)
 
----
-
-## Why Isolation Forest?
-
-Intrusions are **rare and diverse**. Building a supervised classifier would
-require a labelled example of every attack type you ever want to catch, which
-is impossible in practice. **Isolation Forest** is an *unsupervised* anomaly
-detector: it repeatedly partitions the data with random splits and isolates
-points that get separated in only a few splits. Anomalous flows — those far
-from the dense region of normal traffic — are isolated quickly and receive a
-high anomaly score.
-
-This makes it a natural fit for intrusion detection:
-
-- No attack labels required for training.
-- Detects **novel / zero-day** patterns, not just known signatures.
-- Fast to train and score, and scales to large flow volumes.
+Everything runs **fully offline** on synthetic-but-realistic data, so you can
+clone, train, and see results in under a minute — no API keys, no accounts.
 
 ---
 
-## Features
+## Highlights
 
-- **Synthetic traffic generator** that mixes benign flows with three attack
-  families: **DoS floods**, **port scans**, and **brute-force logins**.
-- **Isolation Forest detector** wrapped with feature scaling and one-call
-  save/load.
-- **Evaluation suite** (accuracy, precision, recall, F1, ROC-AUC, confusion
-  matrix) against ground-truth labels.
-- **Batch scanner** that ranks flows from most to least suspicious.
-- **Command-line interface** covering the full workflow.
-- **Unit tests** (`pytest`).
+| Module | Algorithm | What it does |
+| ------ | --------- | ------------ |
+| **Traffic Forecasting** | XGBoost (delta modelling) | 7/30/90-day visitor forecast |
+| **Sales Prediction** | XGBoost | revenue from traffic-quality signals |
+| **SEO Scoring** | XGBoost | 0–100 page score + ranking drivers |
+| **Customer Segmentation** | K-Means | New / Returning / Potential / Buyer + CLV |
+| **Anomaly Detection** | Isolation Forest | flags abnormal traffic days |
+| **Recommendation Engine** | rules + model signals | prioritized fixes with impact estimates |
+| **Health Score** | weighted composite | SEO · Performance · UX · Security · Content |
+| **Growth Strategy** | priority bucketing | today / this week / this month plan |
+| **Autonomous Agent** | snapshot diffing + planning | daily report, change alerts, action plan |
 
----
-
-## Installation
-
-```bash
-git clone https://github.com/thecodebasedot/cyberdetect-ai.git
-cd cyberdetect-ai
-pip install -r requirements.txt
-```
-
-Requires Python 3.10+.
+Plus a **FastAPI** backend, a **self-contained HTML dashboard**, and a
+**React + Tailwind dashboard** (`frontend/`) that consumes the API.
 
 ---
 
 ## Quick start
 
-Run the entire pipeline (generate → train → detect) in one command:
-
 ```bash
+git clone https://github.com/thecodebasedot/cyberdetect-ai.git
+cd cyberdetect-ai
+pip install -r requirements.txt
+
+# Everything at once: generate data -> train 5 models -> analyze -> dashboard
 python main.py demo
 ```
 
-Or step through it:
+Then step through individual commands:
 
 ```bash
-# 1. Generate a synthetic traffic dataset
-python main.py generate --samples 20000 --attack-ratio 0.08
-
-# 2. Train the detector and print evaluation metrics
-python main.py train
-
-# 3. Scan a CSV of flows and list the most suspicious ones
-python main.py detect --input data/network_traffic.csv --top 15
+python main.py generate            # build the 3 synthetic datasets
+python main.py train               # fit & persist all 5 models
+python main.py analyze --horizon 30  # print the full growth report
+python main.py dashboard           # write dashboard/index.html
+python main.py agent               # run one Autonomous Growth Agent cycle
+python main.py serve               # launch the FastAPI backend (docs at /docs)
 ```
 
 ### Example output
 
 ```
-Detection performance
----------------------
-  Accuracy   :  0.992
-  Precision  :  0.934
-  Recall     :  0.964
-  F1-score   :  0.949
-  ROC-AUC    :  0.999
+Model training report
+========================================
+  Traffic forecaster — MAE=124.4  MAPE=4.9%  R²=0.461
+  Sales predictor — MAE=$208  R²=0.792
+  SEO scorer — MAE=6.52 pts  R²=0.812
+  User segmenter — 4 segments  silhouette=0.463
+  Traffic anomaly detector — fitted (Isolation Forest)
 
-Confusion matrix
-----------------
-  TN=2195   FP=13
-  FN=7      TP=185
+Website Health Score: 68/100  (grade D)
+  SEO             57  ███████████·········
+  Performance     85  ████████████████····
+  ...
+
+AI Growth Strategy
+==================
+TODAY (do now)
+  • [SEO] expand the article with useful sections, examples and FAQs
+      ↳ /page/0359: thin content — +8–15% organic traffic
+  • [Anomaly] investigate tracking / algorithm updates on the flagged dates
+      ↳ 44 anomalous traffic day(s) detected — prevent silent traffic loss
 ```
 
 ---
 
-## How it works
+## Architecture
 
 ```
- raw flows (CSV)
-      │
-      ▼
- preprocessing.py   → select numeric features, sanitize, StandardScaler
-      │
-      ▼
- model.py           → IsolationForest.fit()  (unsupervised, labels ignored)
-      │
-      ▼
- detect.py          → anomaly score per flow → rank → flag attacks
-      │
-      ▼
- evaluate.py        → accuracy / precision / recall / F1 / ROC-AUC
+                        ┌──────────────────────────┐
+   synthetic data  ───► │  datasets/                │
+   (GA + GSC + crawl)   │   daily_metrics · pages · users
+                        └────────────┬─────────────┘
+                                     ▼
+        ┌────────────────────────────────────────────────────┐
+        │  Models (growthmind/models/)                        │
+        │  Traffic (XGB) · Sales (XGB) · SEO (XGB)            │
+        │  Segmentation (KMeans) · Anomaly (IsolationForest) │
+        └────────────┬───────────────────────────────────────┘
+                     ▼
+        ┌────────────────────────────────────────────────────┐
+        │  Intelligence layer                                 │
+        │  recommend.py · health.py · strategy.py             │
+        └────────────┬───────────────────────────────────────┘
+                     ▼
+        ┌───────────────────┐   ┌───────────────────────────┐
+        │  CLI (main.py)    │   │  FastAPI (api/app.py)     │
+        │  report.py → HTML │   │  JSON + /dashboard        │
+        └───────────────────┘   └───────────────────────────┘
 ```
 
-### Feature schema
+See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for a deeper walkthrough.
 
-Each network flow is described by ten numeric features exported by a
-lightweight sensor (KDD-Cup-inspired):
+### Datasets
 
-| Feature           | Meaning                                        |
-| ----------------- | ---------------------------------------------- |
-| `duration`        | connection lifetime (seconds)                  |
-| `src_bytes`       | bytes sent source → destination                |
-| `dst_bytes`       | bytes sent destination → source                |
-| `packet_count`    | packets in the flow                            |
-| `packet_rate`     | packets per second                             |
-| `byte_rate`       | bytes per second                               |
-| `failed_logins`   | failed authentication attempts                 |
-| `num_connections` | connections to the same host in a short window |
-| `syn_ratio`       | fraction of packets that are TCP SYN           |
-| `unique_ports`    | distinct destination ports touched             |
+| File | Rows | Description |
+| ---- | ---- | ----------- |
+| `daily_metrics.csv` | 730 | daily time-series of site KPIs (trend + seasonality + injected anomalies) |
+| `pages.csv` | 400 | per-page SEO snapshot with a learnable `seo_score` |
+| `users.csv` | 5000 | per-visitor behaviour with 4 latent segments |
 
-To use **real** data instead of the synthetic generator, produce a CSV with
-these columns (an optional `label` column of `0`/`1` enables evaluation) and
-point `detect` at it.
+To use **real** data, export CSVs with the same columns
+(`growthmind/config.py`) from Google Analytics / Search Console / a crawler and
+drop them into `datasets/`.
+
+---
+
+## API
+
+```bash
+python main.py serve
+```
+
+| Endpoint | Returns |
+| -------- | ------- |
+| `GET /api/kpis` | headline KPIs (health, forecast, revenue, conversion) |
+| `GET /api/forecast?horizon=30` | day-by-day traffic forecast |
+| `GET /api/health-score` | composite score + per-dimension breakdown |
+| `GET /api/segments` | user segments with estimated CLV |
+| `GET /api/anomalies` | flagged anomalous days |
+| `GET /api/recommendations` | prioritized recommendations |
+| `GET /api/strategy` | today / this week / this month plan |
+| `GET /dashboard` | the full HTML dashboard |
+
+Interactive docs at `http://127.0.0.1:8000/docs`.
+
+---
+
+## Autonomous Growth Agent (v2)
+
+The agent runs the whole analysis on a schedule and reports **what changed**
+since last time, not just the current state:
+
+```bash
+python main.py agent                      # propose mode (human approves actions)
+python main.py agent --autonomy auto      # auto-simulate low-risk actions
+python main.py agent --source local       # pluggable data source (local | gsc | ga4)
+```
+
+Each cycle:
+1. **Syncs data** via a pluggable connector (`growthmind/connectors/`).
+2. **Diffs** today's KPIs against the previous cycle's snapshot → change alerts
+   (traffic drop, health regression, new anomalies, forecast shift).
+3. **Plans** a prioritized action list from the recommendations.
+4. **Writes** a dated Growth Report to `reports/growth_report_NNNN.md` and logs
+   actions to `reports/agent_actions.log`.
+
+**Autonomy is human-in-the-loop by default.** In `propose` mode the agent only
+suggests. In `auto` mode it may act on **low-risk** actions only — and because
+this build has no live platform connected, "acting" is *simulated* and logged,
+never executed. Real execution arrives with the live connectors, behind the same
+allow-list and an explicit opt-in.
+
+### Data connectors
+
+`growthmind/connectors/` defines a `DataSource` interface so the models never
+change when the data source does:
+
+| Source | Status |
+| ------ | ------ |
+| `local` | ✅ synthetic / local CSVs — the default, fully offline |
+| `gsc` | 🔒 Google Search Console — interface shipped, needs OAuth credentials |
+| `ga4` | 🔒 Google Analytics 4 — interface shipped, needs OAuth credentials |
+
+Schedule a daily cycle with cron:
+
+```cron
+0 7 * * *  cd /path/to/repo && python main.py agent --autonomy propose
+```
+
+---
+
+## React dashboard (v2 frontend)
+
+A Vite + React + Tailwind dashboard lives in [`frontend/`](frontend/). It shows
+the KPIs, forecast chart, health, segments, recommendations and strategy, and
+falls back to demo data when the backend is offline.
+
+```bash
+cd frontend
+npm install
+npm run dev          # http://localhost:5173 (proxies /api to the backend)
+```
+
+Run `python main.py serve` alongside it for live data. See
+[`frontend/README.md`](frontend/README.md) for details.
 
 ---
 
 ## Project layout
 
 ```
-CyberDetect-AI/
-├── main.py                 # CLI entry point
+GrowthMind-AI/
+├── main.py                     # CLI (generate/train/analyze/dashboard/demo/serve)
 ├── requirements.txt
-├── src/
-│   ├── config.py           # paths, feature schema, model hyper-parameters
-│   ├── data_generator.py   # synthetic network-traffic generator
-│   ├── preprocessing.py    # feature sanitizing + scaling
-│   ├── model.py            # IntrusionDetector (Isolation Forest + scaler)
-│   ├── train.py            # training + evaluation pipeline
-│   ├── detect.py           # batch scanning / ranking
-│   └── evaluate.py         # detection metrics
-├── tests/
-│   └── test_pipeline.py
-├── data/                   # generated datasets (gitignored)
-└── models/                 # trained artifacts (gitignored)
+├── growthmind/
+│   ├── config.py               # paths, schemas, hyper-parameters
+│   ├── data/generator.py       # synthetic GA/GSC/crawl data
+│   ├── models/
+│   │   ├── traffic.py          # XGBoost traffic forecaster
+│   │   ├── sales.py            # XGBoost sales predictor
+│   │   ├── seo.py              # XGBoost SEO scorer
+│   │   ├── segmentation.py     # K-Means user segmentation
+│   │   └── anomaly.py          # Isolation Forest anomaly detector
+│   ├── connectors/             # pluggable data sources (local, gsc, ga4)
+│   ├── agent.py                # Autonomous Growth Agent
+│   ├── recommend.py            # AI recommendation engine
+│   ├── health.py               # website health score
+│   ├── strategy.py             # growth strategy builder
+│   ├── pipeline.py             # end-to-end orchestration
+│   └── report.py               # self-contained HTML dashboard
+├── api/app.py                  # FastAPI backend
+├── frontend/                   # React + Tailwind dashboard (Vite)
+├── tests/                      # pytest suite (22 tests)
+│   ├── test_growthmind.py
+│   └── test_agent.py
+├── datasets/  models/  dashboard/  reports/   # generated artifacts
+└── docs/                       # ARCHITECTURE.md · ROADMAP.md
 ```
 
 ---
 
-## Running the tests
+## Tests
 
 ```bash
-pip install pytest
-python -m pytest -q
+python -m pytest -q      # 12 tests
 ```
 
 ---
 
-## Tuning
+## Roadmap (v2)
 
-The single most important knob is **`contamination`** in
-`src/config.py` — the expected proportion of anomalies. Raise it to catch more
-attacks (higher recall, more false positives); lower it to be more
-conservative (higher precision, fewer alerts). Other Isolation Forest
-parameters (`n_estimators`, `max_samples`, …) live in the same file.
+v1 is a complete, working ML + API + dashboard core. v2 turns it into an
+**autonomous growth agent** connected to real platforms. See
+[`docs/ROADMAP.md`](docs/ROADMAP.md):
+
+- Live connectors: Google Search Console, Google Analytics 4, Bing Webmaster,
+  Shopify, WordPress
+- LSTM / Prophet forecasting alongside XGBoost
+- React + Tailwind frontend consuming the existing API
+- An **AI Autonomous Growth Agent** that analyzes daily, prioritizes fixes, and
+  (with permission) acts on them
+- PostgreSQL persistence + scheduled daily growth reports
 
 ---
+
+## Notes
+
+> This project began as **CyberDetect AI**, an Isolation-Forest network
+> intrusion detector. That anomaly-detection core lives on as GrowthMind's
+> **traffic anomaly** module (`growthmind/models/anomaly.py`) — the same
+> unsupervised technique, repurposed to catch abnormal growth signals.
 
 ## License
 

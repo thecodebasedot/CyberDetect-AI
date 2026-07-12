@@ -1,22 +1,21 @@
 #!/usr/bin/env python3
-"""CyberDetect AI — command-line interface.
+"""GrowthMind AI — command-line interface.
 
-A small, self-contained network intrusion detection system built on an
-Isolation Forest anomaly detector.
+Predict. Optimize. Grow.
+
+An AI growth-intelligence engine: forecasts traffic & sales, scores SEO health,
+segments users, detects traffic anomalies, and turns it all into a prioritized
+growth strategy.
 
 Examples
 --------
-  # 1. Create a synthetic traffic dataset
-  python main.py generate --samples 20000 --attack-ratio 0.08
-
-  # 2. Train the detector and print evaluation metrics
-  python main.py train
-
-  # 3. Scan a CSV of flows and list the most suspicious ones
-  python main.py detect --input data/network_traffic.csv --top 15
-
-  # 4. End-to-end demo (generate -> train -> detect) in one command
-  python main.py demo
+  python main.py generate                 # build the synthetic datasets
+  python main.py train                    # fit & save all 5 models
+  python main.py analyze --horizon 30     # print the full growth report
+  python main.py dashboard                # write dashboard/index.html
+  python main.py demo                     # generate -> train -> analyze -> dashboard
+  python main.py agent                     # run one Autonomous Growth Agent cycle
+  python main.py serve                    # launch the FastAPI backend
 """
 
 from __future__ import annotations
@@ -24,105 +23,156 @@ from __future__ import annotations
 import argparse
 import sys
 
-import pandas as pd
-
-from src.config import DATASET_PATH
-from src.data_generator import generate_dataset
-from src.detect import detect_from_csv, summarize
-from src.train import train
-
 
 def cmd_generate(args: argparse.Namespace) -> None:
-    df = generate_dataset(n_samples=args.samples, attack_ratio=args.attack_ratio)
-    df.to_csv(DATASET_PATH, index=False)
-    attacks = int(df["label"].sum())
-    print(f"Generated {len(df):,} flows -> {DATASET_PATH}")
-    print(f"  normal : {len(df) - attacks:,}")
-    print(f"  attacks: {attacks:,}")
+    from growthmind.data import generate_all
+    daily, pages, users = generate_all(save=True)
+    print("Generated synthetic datasets in datasets/:")
+    print(f"  daily_metrics.csv : {daily.shape[0]:>5} rows x {daily.shape[1]} cols")
+    print(f"  pages.csv         : {pages.shape[0]:>5} rows x {pages.shape[1]} cols")
+    print(f"  users.csv         : {users.shape[0]:>5} rows x {users.shape[1]} cols")
 
 
 def cmd_train(args: argparse.Namespace) -> None:
-    print("Training Isolation Forest intrusion detector ...")
-    _, metrics = train(
-        n_samples=args.samples,
-        attack_ratio=args.attack_ratio,
-        test_size=args.test_size,
-    )
-    print()
-    print(metrics.pretty())
-    print("Model saved to models/ (isolation_forest.joblib, scaler.joblib)")
+    from growthmind.pipeline import train_all
+    print("Training GrowthMind AI models ...\n")
+    report = train_all(regenerate=args.regenerate)
+    print(report.pretty())
+    print("\nModels saved to models/.")
 
 
-def cmd_detect(args: argparse.Namespace) -> None:
-    result = detect_from_csv(args.input, top=args.top)
-    print(summarize(result))
-    print()
+def cmd_analyze(args: argparse.Namespace) -> None:
+    from growthmind.pipeline import analyze
+    insights = analyze(horizon=args.horizon)
+    _print_insights(insights)
 
-    display_cols = [
-        "duration", "src_bytes", "dst_bytes", "packet_rate",
-        "failed_logins", "unique_ports", "anomaly_score", "prediction",
-    ]
-    display_cols = [c for c in display_cols if c in result.columns]
-    with pd.option_context("display.max_rows", None, "display.width", 160):
-        print(result[display_cols].to_string(index=False))
+
+def cmd_dashboard(args: argparse.Namespace) -> None:
+    from growthmind.pipeline import analyze
+    from growthmind.report import write_dashboard
+    insights = analyze(horizon=args.horizon)
+    path = write_dashboard(insights)
+    print(f"Dashboard written to {path}")
+    print("Open it in a browser to explore the report.")
 
 
 def cmd_demo(args: argparse.Namespace) -> None:
+    from growthmind.data import generate_all
+    from growthmind.pipeline import analyze, train_all
+    from growthmind.report import write_dashboard
+
     print("=" * 60)
-    print(" CyberDetect AI — end-to-end demo")
+    print(" GrowthMind AI — end-to-end demo")
     print("=" * 60)
-    cmd_generate(args)
+    generate_all(save=True)
+    print("[1/3] datasets generated")
+    report = train_all(regenerate=False)
+    print("[2/3] models trained\n")
+    print(report.pretty())
+    print("\n[3/3] analysis\n")
+    insights = analyze(horizon=args.horizon)
+    _print_insights(insights)
+    path = write_dashboard(insights)
+    print(f"\nDashboard: {path}")
+
+
+def cmd_agent(args: argparse.Namespace) -> None:
+    from growthmind.agent import AutonomousGrowthAgent
+    from growthmind.connectors import available_sources, get_connector
+
+    if args.source not in available_sources():
+        print(f"Unknown source '{args.source}'. Available: {', '.join(available_sources())}")
+        raise SystemExit(2)
+
+    connector = get_connector(args.source)
+    if not connector.is_available():
+        print(f"Source '{args.source}' is not available (missing credentials). "
+              "Falling back to --source local.")
+        connector = get_connector("local")
+
+    agent = AutonomousGrowthAgent(connector=connector, autonomy=args.autonomy)
+    print(f"Running Autonomous Growth Agent (source={connector.name}, "
+          f"autonomy={args.autonomy}) ...\n")
+    report = agent.run_cycle(horizon=args.horizon)
+    print(report.markdown())
+    print(f"\nReport saved to {report.report_path}")
+
+
+def cmd_serve(args: argparse.Namespace) -> None:
+    import uvicorn
+    print(f"Starting GrowthMind AI API on http://{args.host}:{args.port} ...")
+    print("Docs at /docs")
+    uvicorn.run("api.app:app", host=args.host, port=args.port, reload=args.reload)
+
+
+def _print_insights(insights) -> None:
+    k = insights.kpis
+    print("Key metrics")
+    print("-----------")
+    print(f"  Health score           : {k['health_score']:.0f}/100 (grade {k['health_grade']})")
+    print(f"  Avg daily visitors     : {k['avg_daily_visitors']:,}")
+    print(f"  {k['forecast_horizon_days']}-day forecast (avg)    : "
+          f"{k['forecast_avg_visitors']:,} "
+          f"({k['predicted_traffic_change_pct']:+.1f}%)")
+    print(f"  Monthly revenue        : ${k['monthly_revenue']:,.0f}")
+    print(f"  Conversion rate        : {k['avg_conversion_rate']:.2%}")
+    print(f"  Anomalous days flagged : {k['n_anomalies']}")
     print()
-    cmd_train(args)
+    print(insights.health.pretty())
     print()
-    print("Top suspicious flows from the generated dataset:")
-    print("-" * 60)
-    args.input = str(DATASET_PATH)
-    cmd_detect(args)
+    print("User segments")
+    print("-------------")
+    print(insights.segments.to_string(index=False))
+    print()
+    print(insights.strategy.pretty())
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="cyberdetect",
-        description="Network Intrusion Detection using Isolation Forest.",
+        prog="growthmind",
+        description="GrowthMind AI — Predict. Optimize. Grow.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     sub = parser.add_subparsers(dest="command", required=True)
 
-    common = argparse.ArgumentParser(add_help=False)
-    common.add_argument("--samples", type=int, default=10_000,
-                        help="number of synthetic flows (default: 10000)")
-    common.add_argument("--attack-ratio", type=float, default=0.08,
-                        help="fraction of flows that are attacks (default: 0.08)")
+    p = sub.add_parser("generate", help="generate synthetic datasets")
+    p.set_defaults(func=cmd_generate)
 
-    p_gen = sub.add_parser("generate", parents=[common],
-                           help="generate a synthetic traffic dataset")
-    p_gen.set_defaults(func=cmd_generate)
+    p = sub.add_parser("train", help="train and save all models")
+    p.add_argument("--regenerate", action="store_true", help="regenerate datasets first")
+    p.set_defaults(func=cmd_train)
 
-    p_train = sub.add_parser("train", parents=[common],
-                             help="train the detector and report metrics")
-    p_train.add_argument("--test-size", type=float, default=0.3,
-                         help="held-out test fraction (default: 0.3)")
-    p_train.set_defaults(func=cmd_train)
+    p = sub.add_parser("analyze", help="print the full growth intelligence report")
+    p.add_argument("--horizon", type=int, default=30, help="forecast horizon in days")
+    p.set_defaults(func=cmd_analyze)
 
-    p_det = sub.add_parser("detect", help="scan a CSV of flows for intrusions")
-    p_det.add_argument("--input", required=True, help="path to a flows CSV")
-    p_det.add_argument("--top", type=int, default=20,
-                       help="show only the N most suspicious flows (default: 20)")
-    p_det.set_defaults(func=cmd_detect)
+    p = sub.add_parser("dashboard", help="write the HTML dashboard")
+    p.add_argument("--horizon", type=int, default=30)
+    p.set_defaults(func=cmd_dashboard)
 
-    p_demo = sub.add_parser("demo", parents=[common],
-                            help="run generate -> train -> detect end to end")
-    p_demo.add_argument("--test-size", type=float, default=0.3)
-    p_demo.add_argument("--top", type=int, default=15)
-    p_demo.set_defaults(func=cmd_demo)
+    p = sub.add_parser("demo", help="run generate -> train -> analyze -> dashboard")
+    p.add_argument("--horizon", type=int, default=30)
+    p.set_defaults(func=cmd_demo)
+
+    p = sub.add_parser("agent", help="run one Autonomous Growth Agent cycle")
+    p.add_argument("--source", default="local",
+                   help="data source: local | gsc | ga4 (default: local)")
+    p.add_argument("--autonomy", choices=["propose", "auto"], default="propose",
+                   help="'propose' (human approves) or 'auto' (simulate low-risk actions)")
+    p.add_argument("--horizon", type=int, default=30)
+    p.set_defaults(func=cmd_agent)
+
+    p = sub.add_parser("serve", help="launch the FastAPI backend")
+    p.add_argument("--host", default="127.0.0.1")
+    p.add_argument("--port", type=int, default=8000)
+    p.add_argument("--reload", action="store_true")
+    p.set_defaults(func=cmd_serve)
 
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = build_parser()
-    args = parser.parse_args(argv)
+    args = build_parser().parse_args(argv)
     args.func(args)
     return 0
 
