@@ -149,6 +149,35 @@ Interactive docs at `http://127.0.0.1:8000/docs`.
 
 ---
 
+## Forecasting model comparison + backtesting
+
+The traffic forecaster is validated the way real forecasting is done — with
+**walk-forward (rolling-origin) backtesting** across several model families, not
+a single lucky train/test split:
+
+```bash
+python main.py forecast-eval --horizon 14 --folds 3
+```
+
+```
+       model   MAE   MAPE  RMSE  folds
+     Prophet 141.9 0.0565 159.3      3
+Holt-Winters 238.7 0.0917 266.2      3
+     XGBoost 459.0 0.1725 492.3      3
+
+Best model by MAE: Prophet
+```
+
+Three families compete behind one interface (`growthmind/forecasting.py`):
+**XGBoost** (v1 delta model), **Holt-Winters** triple exponential smoothing
+(statsmodels), and **Prophet**. The honest result: over a 14-day *recursive*
+horizon the tree model degrades (multi-step extrapolation is its weakness),
+while Prophet's additive trend+seasonality wins — a finding a single-split
+evaluation would have hidden. Prophet is optional; it's skipped automatically if
+not installed.
+
+---
+
 ## Autonomous Growth Agent (v2)
 
 The agent runs the whole analysis on a schedule and reports **what changed**
@@ -226,6 +255,7 @@ GrowthMind-AI/
 │   │   ├── segmentation.py     # K-Means user segmentation
 │   │   └── anomaly.py          # Isolation Forest anomaly detector
 │   ├── connectors/             # pluggable data sources (local, gsc, ga4)
+│   ├── forecasting.py          # XGBoost/Holt-Winters/Prophet + backtesting
 │   ├── agent.py                # Autonomous Growth Agent
 │   ├── recommend.py            # AI recommendation engine
 │   ├── health.py               # website health score
@@ -234,9 +264,10 @@ GrowthMind-AI/
 │   └── report.py               # self-contained HTML dashboard
 ├── api/app.py                  # FastAPI backend
 ├── frontend/                   # React + Tailwind dashboard (Vite)
-├── tests/                      # pytest suite (22 tests)
+├── tests/                      # pytest suite (29 tests)
 │   ├── test_growthmind.py
-│   └── test_agent.py
+│   ├── test_agent.py
+│   └── test_forecasting.py
 ├── datasets/  models/  dashboard/  reports/   # generated artifacts
 └── docs/                       # ARCHITECTURE.md · ROADMAP.md
 ```
@@ -246,7 +277,7 @@ GrowthMind-AI/
 ## Tests
 
 ```bash
-python -m pytest -q      # 12 tests
+python -m pytest -q      # 29 tests
 ```
 
 ---
