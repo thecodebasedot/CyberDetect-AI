@@ -9,13 +9,15 @@ A complete, working, offline growth-intelligence core:
   Segmentation (K-Means), Anomaly (Isolation Forest)
 - Recommendation engine, health score, growth strategy
 - FastAPI backend + self-contained HTML dashboard
-- 12-test pytest suite
+- 29-test pytest suite
 
 ## v1.1 — quality & breadth
 
 - [ ] LightGBM ranking model for keyword-position prediction
-- [ ] Prophet / statsmodels baseline alongside the XGBoost forecaster
-- [ ] Backtesting harness (rolling-origin evaluation) for the forecaster
+- [x] Prophet + statsmodels (Holt-Winters) baselines alongside XGBoost
+      (`growthmind/forecasting.py`)
+- [x] Backtesting harness (rolling-origin / walk-forward) comparing forecasters
+      (`python main.py forecast-eval`)
 - [ ] Confidence intervals on forecasts
 - [ ] Churn model and per-user CLV regression
 - [ ] Competitor gap analysis (keyword / content / backlink deltas)

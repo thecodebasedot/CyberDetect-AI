@@ -14,6 +14,7 @@ Examples
   python main.py analyze --horizon 30     # print the full growth report
   python main.py dashboard                # write dashboard/index.html
   python main.py demo                     # generate -> train -> analyze -> dashboard
+  python main.py forecast-eval            # backtest XGBoost vs Holt-Winters vs Prophet
   python main.py agent                     # run one Autonomous Growth Agent cycle
   python main.py serve                    # launch the FastAPI backend
 """
@@ -74,6 +75,19 @@ def cmd_demo(args: argparse.Namespace) -> None:
     _print_insights(insights)
     path = write_dashboard(insights)
     print(f"\nDashboard: {path}")
+
+
+def cmd_forecast_eval(args: argparse.Namespace) -> None:
+    from growthmind.forecasting import compare_forecasters
+    from growthmind.pipeline import load_datasets
+
+    daily, _, _ = load_datasets()
+    print(f"Rolling-origin backtest — horizon={args.horizon}d, folds={args.folds}\n"
+          "(training window grows each fold; lower is better)\n")
+    table = compare_forecasters(daily, horizon=args.horizon, folds=args.folds)
+    print(table.to_string(index=False))
+    best = table.iloc[0]["model"]
+    print(f"\nBest model by MAE: {best}")
 
 
 def cmd_agent(args: argparse.Namespace) -> None:
@@ -153,6 +167,12 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("demo", help="run generate -> train -> analyze -> dashboard")
     p.add_argument("--horizon", type=int, default=30)
     p.set_defaults(func=cmd_demo)
+
+    p = sub.add_parser("forecast-eval",
+                       help="backtest & compare traffic forecasters (XGBoost/Holt-Winters/Prophet)")
+    p.add_argument("--horizon", type=int, default=14, help="forecast horizon per fold")
+    p.add_argument("--folds", type=int, default=3, help="number of walk-forward folds")
+    p.set_defaults(func=cmd_forecast_eval)
 
     p = sub.add_parser("agent", help="run one Autonomous Growth Agent cycle")
     p.add_argument("--source", default="local",
