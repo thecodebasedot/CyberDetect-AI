@@ -175,9 +175,31 @@ def generate_users(n: int = 5000, random_state: int = RANDOM_STATE) -> pd.DataFr
     pageviews = np.maximum(1, rng.poisson(per_seg({0: 2, 1: 15, 2: 12, 3: 30}))).astype(int)
     avg_time = np.clip(rng.normal(per_seg({0: 45, 1: 160, 2: 130, 3: 240}), 30), 5, 900)
     recency = np.clip(rng.normal(per_seg({0: 40, 1: 12, 2: 20, 3: 5}), 8), 0, 365).round().astype(int)
-    num_orders = per_seg({0: 0, 1: 0, 2: 0, 3: 3}) + rng.poisson(per_seg({0: 0, 1: 0, 2: 0, 3: 2}))
-    num_orders = num_orders.astype(int)
-    total_spent = np.round(num_orders * rng.normal(52, 12, n).clip(10, None), 2)
+    # Purchasing is propensity-based, not hard-coded to one segment: buyers
+    # appear across segments driven by engagement (+ a segment bias) with logit
+    # noise, so purchase prediction is a realistic, non-trivial learning task.
+    engagement = 0.15 * sessions + 0.03 * pageviews + 0.004 * avg_time - 0.01 * recency
+    seg_bias = per_seg({0: -1.0, 1: -0.2, 2: 0.3, 3: 2.2})
+    purchase_logit = -2.2 + engagement + seg_bias + rng.normal(0, 0.7, n)
+    p_buy = 1.0 / (1.0 + np.exp(-purchase_logit))
+    bought = rng.random(n) < p_buy
+    # More engaged buyers place more orders -> spend is predictable from behaviour.
+    orders_if_buy = 1 + rng.poisson(np.clip(engagement / 4.0, 0.1, 8))
+    num_orders = (bought * orders_if_buy).astype(int)
+    total_spent = np.round(num_orders * rng.normal(52, 6, n).clip(10, None), 2)
+
+    # Churn label (ground truth for the churn model). Lapsing is driven by high
+    # recency and low engagement, with Bernoulli noise so it is not perfectly
+    # recoverable — a realistic, non-trivial classification target.
+    churn_logit = (
+        0.05 * (recency - 25)
+        - 0.20 * sessions
+        - 0.015 * pageviews
+        - 0.002 * avg_time
+        + rng.normal(0, 0.5, n)
+    )
+    churn_prob = 1.0 / (1.0 + np.exp(-churn_logit))
+    churned = (rng.random(n) < churn_prob).astype(int)
 
     return pd.DataFrame({
         "user_id": [f"u{i:06d}" for i in range(n)],
@@ -187,6 +209,7 @@ def generate_users(n: int = 5000, random_state: int = RANDOM_STATE) -> pd.DataFr
         "recency_days": recency,
         "num_orders": num_orders,
         "total_spent": total_spent,
+        "churned": churned,
         "_latent_segment": seg,   # kept for validation only; models never see it
     })
 

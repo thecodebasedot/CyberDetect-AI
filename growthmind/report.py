@@ -75,7 +75,12 @@ def render_html(insights: GrowthInsights) -> str:
         _kpi_card("Monthly Revenue", f"${k['monthly_revenue']:,.0f}", "last 30 days"),
         _kpi_card("Conversion Rate", f"{k['avg_conversion_rate']:.2%}", "last 30 days"),
         _kpi_card("Anomalies", f"{k['n_anomalies']}", "flagged days"),
-    ])
+    ] + ([
+        _kpi_card("Revenue at Risk", f"${k['revenue_at_risk']:,.0f}",
+                  f"{k['high_churn_customers']:,} high-churn customers"),
+        _kpi_card("Conversion Opportunities", f"{k['conversion_opportunities']:,}",
+                  "high-intent non-buyers"),
+    ] if "revenue_at_risk" in k else []))
 
     # Health dimensions.
     health_bars = ""

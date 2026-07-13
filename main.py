@@ -77,6 +77,31 @@ def cmd_demo(args: argparse.Namespace) -> None:
     print(f"\nDashboard: {path}")
 
 
+def cmd_customers(args: argparse.Namespace) -> None:
+    from growthmind.models import CustomerIntelligence
+    from growthmind.pipeline import load_datasets
+
+    _, _, users = load_datasets()
+    ci = CustomerIntelligence.load()
+    summary = ci.summary(users)
+
+    print("Customer Intelligence")
+    print("---------------------")
+    print(f"  Customers                : {summary['customers']:,}")
+    print(f"  Avg purchase propensity  : {summary['avg_purchase_prob']:.1%}")
+    print(f"  Avg churn risk           : {summary['avg_churn_risk']:.1%}")
+    print(f"  High-churn customers     : {summary['high_churn_customers']:,}")
+    print(f"  Revenue at risk          : ${summary['revenue_at_risk']:,.0f}")
+    print(f"  Avg predicted CLV        : ${summary['avg_predicted_clv']:,.2f}")
+    print(f"  Conversion opportunities : {summary['conversion_opportunities']:,}")
+
+    scored = ci.score(users)
+    print("\nTop 10 at-risk high-value customers:")
+    top = (scored.sort_values(["churn_risk", "predicted_clv"], ascending=False)
+           .head(10)[["user_id", "purchase_prob", "churn_risk", "predicted_clv"]])
+    print(top.to_string(index=False))
+
+
 def cmd_forecast_eval(args: argparse.Namespace) -> None:
     from growthmind.forecasting import compare_forecasters
     from growthmind.pipeline import load_datasets
@@ -131,6 +156,10 @@ def _print_insights(insights) -> None:
     print(f"  Monthly revenue        : ${k['monthly_revenue']:,.0f}")
     print(f"  Conversion rate        : {k['avg_conversion_rate']:.2%}")
     print(f"  Anomalous days flagged : {k['n_anomalies']}")
+    if "revenue_at_risk" in k:
+        print(f"  Revenue at churn risk  : ${k['revenue_at_risk']:,.0f} "
+              f"({k['high_churn_customers']} customers)")
+        print(f"  Conversion opportunities: {k['conversion_opportunities']}")
     print()
     print(insights.health.pretty())
     print()
@@ -167,6 +196,10 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("demo", help="run generate -> train -> analyze -> dashboard")
     p.add_argument("--horizon", type=int, default=30)
     p.set_defaults(func=cmd_demo)
+
+    p = sub.add_parser("customers",
+                       help="customer intelligence: purchase / churn / CLV predictions")
+    p.set_defaults(func=cmd_customers)
 
     p = sub.add_parser("forecast-eval",
                        help="backtest & compare traffic forecasters (XGBoost/Holt-Winters/Prophet)")

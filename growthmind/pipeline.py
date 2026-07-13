@@ -22,6 +22,7 @@ from .config import (
 from .data import generate_all
 from .health import HealthScore, compute_health
 from .models import (
+    CustomerIntelligence,
     SEOScorer,
     SalesPredictor,
     TrafficAnomalyDetector,
@@ -77,12 +78,16 @@ def train_all(regenerate: bool = False, save: bool = True) -> TrainingReport:
     anomaly = TrafficAnomalyDetector().fit(daily)
     metrics["anomaly"] = "Traffic anomaly detector — fitted (Isolation Forest)"
 
+    customer = CustomerIntelligence()
+    metrics["customer"] = customer.fit(users).pretty()
+
     if save:
         traffic.save()
         sales.save()
         seo.save()
         segmenter.save()
         anomaly.save()
+        customer.save()
 
     return TrainingReport(metrics=metrics)
 
@@ -99,6 +104,7 @@ class GrowthInsights:
     recommendations: list
     strategy: object
     kpis: dict = field(default_factory=dict)
+    customers: dict = field(default_factory=dict)
 
 
 def analyze(horizon: int = FORECAST_HORIZON, regenerate: bool = False) -> GrowthInsights:
@@ -110,10 +116,12 @@ def analyze(horizon: int = FORECAST_HORIZON, regenerate: bool = False) -> Growth
     seo = SEOScorer.load()
     segmenter = UserSegmenter.load()
     anomaly = TrafficAnomalyDetector.load()
+    customer = CustomerIntelligence.load()
 
     forecast = traffic.forecast(daily, horizon=horizon)
     anomaly_days = anomaly.detect(daily).anomalous_days()
     segment_summary = segmenter.segment_summary(users)
+    customer_summary = customer.summary(users)
     health = compute_health(daily, pages)
 
     # Recommendations from pages + site trends + models.
@@ -123,6 +131,7 @@ def analyze(horizon: int = FORECAST_HORIZON, regenerate: bool = False) -> Growth
         sales_importance=sales.feature_importance(),
         anomalies=anomaly_days,
     )
+    recs += recommend.customer_recommendations(customer_summary)
     recs = recommend.prioritize(recs)
     plan = strategy.build_strategy(recs)
 
@@ -140,12 +149,16 @@ def analyze(horizon: int = FORECAST_HORIZON, regenerate: bool = False) -> Growth
         "health_grade": health.grade,
         "n_anomalies": int(len(anomaly_days)),
         "n_recommendations": len(recs),
+        "revenue_at_risk": customer_summary["revenue_at_risk"],
+        "high_churn_customers": customer_summary["high_churn_customers"],
+        "conversion_opportunities": customer_summary["conversion_opportunities"],
     }
 
     return GrowthInsights(
         forecast=forecast,
         anomalies=anomaly_days,
         segments=segment_summary,
+        customers=customer_summary,
         health=health,
         recommendations=recs,
         strategy=plan,
