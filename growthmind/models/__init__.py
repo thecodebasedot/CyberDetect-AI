@@ -6,6 +6,7 @@ from .seo import SEOScorer
 from .segmentation import UserSegmenter
 from .anomaly import TrafficAnomalyDetector
 from .customer import CustomerIntelligence
+from .ranking import KeywordRankingModel
 
 __all__ = [
     "TrafficForecaster",
@@ -14,4 +15,5 @@ __all__ = [
     "UserSegmenter",
     "TrafficAnomalyDetector",
     "CustomerIntelligence",
+    "KeywordRankingModel",
 ]

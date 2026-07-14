@@ -215,26 +215,129 @@ def generate_users(n: int = 5000, random_state: int = RANDOM_STATE) -> pd.DataFr
 
 
 # --------------------------------------------------------------------------
+# Keyword ↔ page ranking candidates (learning-to-rank dataset)
+# --------------------------------------------------------------------------
+def generate_keywords(
+    n_keywords: int = 300,
+    pages_per_keyword: int = 10,
+    random_state: int = RANDOM_STATE,
+) -> pd.DataFrame:
+    """Generate a learning-to-rank dataset.
+
+    For each keyword, several candidate pages compete for the top spots. Each
+    ``(keyword, page)`` row carries on-page + off-page ranking signals, and a
+    graded relevance label (0–4) derived transparently from a weighted "true
+    ranking score" plus noise — exactly the shape LightGBM's LambdaMART ranker
+    consumes. One candidate per keyword is flagged ``is_ours`` so we can surface
+    *our* striking-distance ranking opportunities.
+
+    Rows are ordered by ``keyword_id`` so group sizes are contiguous.
+    """
+    rng = np.random.default_rng(random_state + 3)
+    rows = []
+
+    for kid in range(n_keywords):
+        search_volume = float(rng.lognormal(mean=6.0, sigma=1.1))
+        difficulty = float(np.clip(rng.normal(50, 20), 1, 100))
+        k = pages_per_keyword
+        ours_idx = rng.integers(0, k)
+
+        relevance = rng.beta(2, 2, k)
+        word_count = rng.lognormal(6.6, 0.5, k).clip(100, 6000)
+        backlinks = rng.lognormal(3.5, 1.2, k)
+        domain_authority = np.clip(rng.normal(45, 18, k), 1, 100)
+        page_speed = np.clip(rng.normal(75, 14, k), 20, 100)
+        kw_in_title = rng.binomial(1, np.clip(relevance + 0.1, 0, 1))
+        kw_in_h1 = rng.binomial(1, np.clip(relevance, 0, 1))
+        internal_links = rng.poisson(10, k)
+
+        # Transparent "true ranking score" the ranker should learn to recover.
+        score = (
+            3.0 * relevance
+            + 0.9 * np.log1p(backlinks)
+            + 0.02 * domain_authority
+            + 0.01 * page_speed
+            + 0.6 * kw_in_title
+            + 0.4 * kw_in_h1
+            + 0.02 * internal_links
+            + 0.0002 * np.clip(word_count, 0, 2500)
+            - 0.01 * difficulty
+            + rng.normal(0, 0.4, k)
+        )
+        # Position 1 = best score within the keyword group.
+        order = np.argsort(-score)
+        position = np.empty(k, dtype=int)
+        position[order] = np.arange(1, k + 1)
+        # Graded relevance from position (standard for LTR): top spots score high.
+        label = np.select(
+            [position == 1, position <= 3, position <= 6, position <= 10],
+            [4, 3, 2, 1], default=0,
+        )
+
+        for j in range(k):
+            rows.append({
+                "keyword_id": kid,
+                "keyword": f"kw_{kid:04d}",
+                "search_volume": round(search_volume),
+                "keyword_difficulty": round(difficulty, 1),
+                "is_ours": int(j == ours_idx),
+                "relevance": round(float(relevance[j]), 3),
+                "word_count": int(word_count[j]),
+                "backlinks": int(backlinks[j]),
+                "domain_authority": round(float(domain_authority[j]), 1),
+                "page_speed": round(float(page_speed[j]), 1),
+                "keyword_in_title": int(kw_in_title[j]),
+                "keyword_in_h1": int(kw_in_h1[j]),
+                "internal_links": int(internal_links[j]),
+                "position": int(position[j]),
+                "relevance_label": int(label[j]),
+            })
+
+    return pd.DataFrame(rows)
+
+
+# --------------------------------------------------------------------------
 # Convenience: generate + persist everything
 # --------------------------------------------------------------------------
 def generate_all(random_state: int = RANDOM_STATE, save: bool = True):
-    """Generate all three tables and (optionally) write them to ``datasets/``."""
-    from ..config import DAILY_METRICS_CSV, PAGES_CSV, USERS_CSV
+    """Generate the core tables and (optionally) write them to ``datasets/``.
+
+    Returns the three primary tables (daily, pages, users). The keyword
+    learning-to-rank table is also written when ``save`` is set, but is loaded
+    on demand via :func:`load_keywords` rather than returned here (to keep this
+    function's signature — and its callers — stable).
+    """
+    from ..config import DAILY_METRICS_CSV, KEYWORDS_CSV, PAGES_CSV, USERS_CSV
 
     daily = generate_daily_metrics(random_state=random_state)
     pages = generate_pages(random_state=random_state)
     users = generate_users(random_state=random_state)
+    keywords = generate_keywords(random_state=random_state)
 
     if save:
         daily.to_csv(DAILY_METRICS_CSV, index=False)
         pages.to_csv(PAGES_CSV, index=False)
         users.to_csv(USERS_CSV, index=False)
+        keywords.to_csv(KEYWORDS_CSV, index=False)
 
     return daily, pages, users
 
 
+def load_keywords(random_state: int = RANDOM_STATE) -> pd.DataFrame:
+    """Load the keyword ranking table, generating + caching it on first use."""
+    from ..config import KEYWORDS_CSV
+
+    if KEYWORDS_CSV.exists():
+        return pd.read_csv(KEYWORDS_CSV)
+    keywords = generate_keywords(random_state=random_state)
+    keywords.to_csv(KEYWORDS_CSV, index=False)
+    return keywords
+
+
 if __name__ == "__main__":
     d, p, u = generate_all()
+    k = load_keywords()
     print(f"daily_metrics: {d.shape}")
     print(f"pages        : {p.shape}")
     print(f"users        : {u.shape}")
+    print(f"keywords     : {k.shape}")
