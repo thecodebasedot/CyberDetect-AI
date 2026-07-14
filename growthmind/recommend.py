@@ -193,6 +193,36 @@ def site_recommendations(
     return recs
 
 
+def customer_recommendations(summary: dict) -> list[Recommendation]:
+    """Recommendations derived from the customer-intelligence summary."""
+    recs: list[Recommendation] = []
+    if not summary:
+        return recs
+
+    if summary.get("high_churn_customers", 0) > 0:
+        recs.append(Recommendation(
+            area="Retention",
+            problem=f"{summary['high_churn_customers']} customers at high churn risk",
+            reason=f"${summary.get('revenue_at_risk', 0):,.0f} of predicted CLV is "
+                   "exposed to churn",
+            action="launch a win-back campaign (email/offer) for high-risk customers",
+            expected_gain="recover at-risk revenue",
+            priority=1,
+        ))
+
+    if summary.get("conversion_opportunities", 0) > 0:
+        recs.append(Recommendation(
+            area="Conversion",
+            problem=f"{summary['conversion_opportunities']} high-intent non-buyers",
+            reason="these visitors have high predicted purchase propensity but "
+                   "haven't converted",
+            action="target them with a first-purchase incentive / retargeting",
+            expected_gain="new conversions from warm traffic",
+            priority=2,
+        ))
+    return recs
+
+
 def prioritize(recs: list[Recommendation]) -> list[Recommendation]:
     """Sort recommendations by priority (highest first)."""
     return sorted(recs, key=lambda r: r.priority)

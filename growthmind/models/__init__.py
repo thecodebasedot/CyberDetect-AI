@@ -5,6 +5,7 @@ from .sales import SalesPredictor
 from .seo import SEOScorer
 from .segmentation import UserSegmenter
 from .anomaly import TrafficAnomalyDetector
+from .customer import CustomerIntelligence
 
 __all__ = [
     "TrafficForecaster",
@@ -12,4 +13,5 @@ __all__ = [
     "SEOScorer",
     "UserSegmenter",
     "TrafficAnomalyDetector",
+    "CustomerIntelligence",
 ]

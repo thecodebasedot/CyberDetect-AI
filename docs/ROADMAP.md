@@ -9,7 +9,7 @@ A complete, working, offline growth-intelligence core:
   Segmentation (K-Means), Anomaly (Isolation Forest)
 - Recommendation engine, health score, growth strategy
 - FastAPI backend + self-contained HTML dashboard
-- 29-test pytest suite
+- 37-test pytest suite
 
 ## v1.1 — quality & breadth
 
@@ -19,7 +19,8 @@ A complete, working, offline growth-intelligence core:
 - [x] Backtesting harness (rolling-origin / walk-forward) comparing forecasters
       (`python main.py forecast-eval`)
 - [ ] Confidence intervals on forecasts
-- [ ] Churn model and per-user CLV regression
+- [x] Purchase-propensity, churn, and CLV models (`growthmind/models/customer.py`,
+      `python main.py customers`)
 - [ ] Competitor gap analysis (keyword / content / backlink deltas)
 
 ## v2.0 — from analytics to autonomous agent

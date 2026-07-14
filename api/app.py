@@ -70,6 +70,13 @@ def segments():
     return analyze().segments.to_dict(orient="records")
 
 
+@app.get("/api/customers")
+def customers():
+    """Customer-intelligence summary: purchase propensity, churn, CLV."""
+    _require_trained()
+    return analyze().customers
+
+
 @app.get("/api/anomalies")
 def anomalies():
     _require_trained()

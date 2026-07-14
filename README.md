@@ -27,6 +27,7 @@ clone, train, and see results in under a minute — no API keys, no accounts.
 | **Sales Prediction** | XGBoost | revenue from traffic-quality signals |
 | **SEO Scoring** | XGBoost | 0–100 page score + ranking drivers |
 | **Customer Segmentation** | K-Means | New / Returning / Potential / Buyer + CLV |
+| **Customer Intelligence** | XGBoost | purchase propensity · churn risk · lifetime value |
 | **Anomaly Detection** | Isolation Forest | flags abnormal traffic days |
 | **Recommendation Engine** | rules + model signals | prioritized fixes with impact estimates |
 | **Health Score** | weighted composite | SEO · Performance · UX · Security · Content |
@@ -45,7 +46,7 @@ git clone https://github.com/thecodebasedot/cyberdetect-ai.git
 cd cyberdetect-ai
 pip install -r requirements.txt
 
-# Everything at once: generate data -> train 5 models -> analyze -> dashboard
+# Everything at once: generate data -> train 6 models -> analyze -> dashboard
 python main.py demo
 ```
 
@@ -53,8 +54,9 @@ Then step through individual commands:
 
 ```bash
 python main.py generate            # build the 3 synthetic datasets
-python main.py train               # fit & persist all 5 models
+python main.py train               # fit & persist all 6 models
 python main.py analyze --horizon 30  # print the full growth report
+python main.py customers           # purchase / churn / CLV predictions
 python main.py dashboard           # write dashboard/index.html
 python main.py agent               # run one Autonomous Growth Agent cycle
 python main.py serve               # launch the FastAPI backend (docs at /docs)
@@ -70,6 +72,7 @@ Model training report
   SEO scorer — MAE=6.52 pts  R²=0.812
   User segmenter — 4 segments  silhouette=0.463
   Traffic anomaly detector — fitted (Isolation Forest)
+  Customer intelligence — purchase AUC=0.840  churn AUC=0.812  CLV R²=0.379
 
 Website Health Score: 68/100  (grade D)
   SEO             57  ███████████·········
@@ -120,7 +123,7 @@ See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for a deeper walkthrough.
 | ---- | ---- | ----------- |
 | `daily_metrics.csv` | 730 | daily time-series of site KPIs (trend + seasonality + injected anomalies) |
 | `pages.csv` | 400 | per-page SEO snapshot with a learnable `seo_score` |
-| `users.csv` | 5000 | per-visitor behaviour with 4 latent segments |
+| `users.csv` | 5000 | per-visitor behaviour, churn label & 4 latent segments |
 
 To use **real** data, export CSVs with the same columns
 (`growthmind/config.py`) from Google Analytics / Search Console / a crawler and
@@ -140,12 +143,31 @@ python main.py serve
 | `GET /api/forecast?horizon=30` | day-by-day traffic forecast |
 | `GET /api/health-score` | composite score + per-dimension breakdown |
 | `GET /api/segments` | user segments with estimated CLV |
+| `GET /api/customers` | purchase propensity · churn · CLV summary |
 | `GET /api/anomalies` | flagged anomalous days |
 | `GET /api/recommendations` | prioritized recommendations |
 | `GET /api/strategy` | today / this week / this month plan |
 | `GET /dashboard` | the full HTML dashboard |
 
 Interactive docs at `http://127.0.0.1:8000/docs`.
+
+---
+
+## Customer Intelligence
+
+Segmentation tells you *who* your visitors are; this predicts what they'll *do*
+(`growthmind/models/customer.py`, `python main.py customers`):
+
+- **Purchase propensity** — probability a visitor converts, from behaviour only
+  (purchase columns are excluded as inputs to avoid leakage). ROC-AUC ≈ 0.84.
+- **Churn** — probability an existing customer lapses. ROC-AUC ≈ 0.81.
+- **Customer Lifetime Value** — expected monetary value predicted from
+  engagement behaviour. R² ≈ 0.38 (behaviour-only, no purchase-history leakage).
+
+These roll up into headline retention KPIs — **revenue at risk** (expected CLV
+weighted by churn probability) and **conversion opportunities** (high-propensity
+non-buyers) — which the recommendation engine turns into win-back and
+first-purchase actions.
 
 ---
 
@@ -255,6 +277,7 @@ GrowthMind-AI/
 │   │   ├── segmentation.py     # K-Means user segmentation
 │   │   └── anomaly.py          # Isolation Forest anomaly detector
 │   ├── connectors/             # pluggable data sources (local, gsc, ga4)
+│   ├── models/customer.py      # purchase / churn / CLV models
 │   ├── forecasting.py          # XGBoost/Holt-Winters/Prophet + backtesting
 │   ├── agent.py                # Autonomous Growth Agent
 │   ├── recommend.py            # AI recommendation engine
@@ -264,7 +287,7 @@ GrowthMind-AI/
 │   └── report.py               # self-contained HTML dashboard
 ├── api/app.py                  # FastAPI backend
 ├── frontend/                   # React + Tailwind dashboard (Vite)
-├── tests/                      # pytest suite (29 tests)
+├── tests/                      # pytest suite (37 tests)
 │   ├── test_growthmind.py
 │   ├── test_agent.py
 │   └── test_forecasting.py
@@ -277,7 +300,7 @@ GrowthMind-AI/
 ## Tests
 
 ```bash
-python -m pytest -q      # 29 tests
+python -m pytest -q      # 37 tests
 ```
 
 ---
