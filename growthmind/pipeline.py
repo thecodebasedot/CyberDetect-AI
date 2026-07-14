@@ -19,10 +19,11 @@ from .config import (
     PAGES_CSV,
     USERS_CSV,
 )
-from .data import generate_all
+from .data import generate_all, load_keywords
 from .health import HealthScore, compute_health
 from .models import (
     CustomerIntelligence,
+    KeywordRankingModel,
     SEOScorer,
     SalesPredictor,
     TrafficAnomalyDetector,
@@ -81,6 +82,9 @@ def train_all(regenerate: bool = False, save: bool = True) -> TrainingReport:
     customer = CustomerIntelligence()
     metrics["customer"] = customer.fit(users).pretty()
 
+    ranker = KeywordRankingModel()
+    metrics["ranking"] = ranker.fit(load_keywords()).pretty()
+
     if save:
         traffic.save()
         sales.save()
@@ -88,6 +92,7 @@ def train_all(regenerate: bool = False, save: bool = True) -> TrainingReport:
         segmenter.save()
         anomaly.save()
         customer.save()
+        ranker.save()
 
     return TrainingReport(metrics=metrics)
 

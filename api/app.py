@@ -77,6 +77,22 @@ def customers():
     return analyze().customers
 
 
+@app.get("/api/keywords")
+def keywords(top: int = Query(15, ge=1, le=100)):
+    """LightGBM keyword ranking: top factors + striking-distance opportunities."""
+    _require_trained()
+    from growthmind.data import load_keywords
+    from growthmind.models import KeywordRankingModel
+
+    ranker = KeywordRankingModel.load()
+    kw = load_keywords()
+    imp = ranker.feature_importance()
+    return {
+        "top_factors": {k: int(v) for k, v in imp.head(5).items()},
+        "opportunities": ranker.opportunities(kw, top=top).to_dict(orient="records"),
+    }
+
+
 @app.get("/api/anomalies")
 def anomalies():
     _require_trained()

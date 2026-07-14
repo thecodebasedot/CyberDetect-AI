@@ -22,6 +22,7 @@ for _d in (DATASETS_DIR, MODELS_DIR, DASHBOARD_DIR, REPORTS_DIR):
 DAILY_METRICS_CSV = DATASETS_DIR / "daily_metrics.csv"   # time-series of site KPIs
 PAGES_CSV = DATASETS_DIR / "pages.csv"                    # per-page SEO snapshot
 USERS_CSV = DATASETS_DIR / "users.csv"                    # per-visitor behaviour
+KEYWORDS_CSV = DATASETS_DIR / "keywords.csv"             # keyword↔page ranking candidates
 
 # --- Model artifacts ------------------------------------------------------
 TRAFFIC_MODEL = MODELS_DIR / "traffic_forecaster.joblib"
@@ -29,6 +30,7 @@ SALES_MODEL = MODELS_DIR / "sales_predictor.joblib"
 SEO_MODEL = MODELS_DIR / "seo_scorer.joblib"
 SEGMENTER_MODEL = MODELS_DIR / "user_segmenter.joblib"
 ANOMALY_MODEL = MODELS_DIR / "traffic_anomaly.joblib"
+RANKING_MODEL = MODELS_DIR / "keyword_ranker.joblib"
 
 RANDOM_STATE = 42
 
@@ -75,6 +77,20 @@ USER_FEATURES = [
     "recency_days",
     "num_orders",
     "total_spent",
+]
+
+# Per-(keyword, page) features used by the LightGBM ranking model.
+RANKING_FEATURES = [
+    "relevance",
+    "word_count",
+    "backlinks",
+    "domain_authority",
+    "page_speed",
+    "keyword_in_title",
+    "keyword_in_h1",
+    "internal_links",
+    "keyword_difficulty",
+    "search_volume",
 ]
 
 # --- Model hyper-parameters ----------------------------------------------

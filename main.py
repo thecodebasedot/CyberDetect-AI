@@ -77,6 +77,26 @@ def cmd_demo(args: argparse.Namespace) -> None:
     print(f"\nDashboard: {path}")
 
 
+def cmd_keywords(args: argparse.Namespace) -> None:
+    from growthmind.data import load_keywords
+    from growthmind.models import KeywordRankingModel
+
+    keywords = load_keywords()
+    ranker = KeywordRankingModel.load()
+
+    print("Keyword Ranking (LightGBM learning-to-rank)")
+    print("-------------------------------------------")
+    imp = ranker.feature_importance()
+    print("Top ranking factors:")
+    for feat, val in imp.head(5).items():
+        print(f"  {feat:<20} {val:.0f}")
+
+    opps = ranker.opportunities(keywords, top=args.top)
+    print(f"\nStriking-distance opportunities (our pages at positions 4–15), "
+          f"top {args.top} by search volume:")
+    print(opps.to_string(index=False))
+
+
 def cmd_customers(args: argparse.Namespace) -> None:
     from growthmind.models import CustomerIntelligence
     from growthmind.pipeline import load_datasets
@@ -200,6 +220,11 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("customers",
                        help="customer intelligence: purchase / churn / CLV predictions")
     p.set_defaults(func=cmd_customers)
+
+    p = sub.add_parser("keywords",
+                       help="keyword ranking (LightGBM LTR) + striking-distance opportunities")
+    p.add_argument("--top", type=int, default=15, help="number of opportunities to show")
+    p.set_defaults(func=cmd_keywords)
 
     p = sub.add_parser("forecast-eval",
                        help="backtest & compare traffic forecasters (XGBoost/Holt-Winters/Prophet)")

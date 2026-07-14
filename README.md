@@ -28,6 +28,7 @@ clone, train, and see results in under a minute — no API keys, no accounts.
 | **SEO Scoring** | XGBoost | 0–100 page score + ranking drivers |
 | **Customer Segmentation** | K-Means | New / Returning / Potential / Buyer + CLV |
 | **Customer Intelligence** | XGBoost | purchase propensity · churn risk · lifetime value |
+| **Keyword Ranking** | LightGBM (LambdaMART) | learning-to-rank + striking-distance SEO wins |
 | **Anomaly Detection** | Isolation Forest | flags abnormal traffic days |
 | **Recommendation Engine** | rules + model signals | prioritized fixes with impact estimates |
 | **Health Score** | weighted composite | SEO · Performance · UX · Security · Content |
@@ -46,17 +47,18 @@ git clone https://github.com/thecodebasedot/cyberdetect-ai.git
 cd cyberdetect-ai
 pip install -r requirements.txt
 
-# Everything at once: generate data -> train 6 models -> analyze -> dashboard
+# Everything at once: generate data -> train 7 models -> analyze -> dashboard
 python main.py demo
 ```
 
 Then step through individual commands:
 
 ```bash
-python main.py generate            # build the 3 synthetic datasets
-python main.py train               # fit & persist all 6 models
+python main.py generate            # build the 4 synthetic datasets
+python main.py train               # fit & persist all 7 models
 python main.py analyze --horizon 30  # print the full growth report
 python main.py customers           # purchase / churn / CLV predictions
+python main.py keywords            # keyword ranking + striking-distance wins
 python main.py dashboard           # write dashboard/index.html
 python main.py agent               # run one Autonomous Growth Agent cycle
 python main.py serve               # launch the FastAPI backend (docs at /docs)
@@ -73,6 +75,7 @@ Model training report
   User segmenter — 4 segments  silhouette=0.463
   Traffic anomaly detector — fitted (Isolation Forest)
   Customer intelligence — purchase AUC=0.840  churn AUC=0.812  CLV R²=0.379
+  Keyword ranker — NDCG@10=0.973  NDCG@5=0.957  (60 test keywords)
 
 Website Health Score: 68/100  (grade D)
   SEO             57  ███████████·········
@@ -124,6 +127,7 @@ See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for a deeper walkthrough.
 | `daily_metrics.csv` | 730 | daily time-series of site KPIs (trend + seasonality + injected anomalies) |
 | `pages.csv` | 400 | per-page SEO snapshot with a learnable `seo_score` |
 | `users.csv` | 5000 | per-visitor behaviour, churn label & 4 latent segments |
+| `keywords.csv` | 3000 | keyword↔page ranking candidates (learning-to-rank) |
 
 To use **real** data, export CSVs with the same columns
 (`growthmind/config.py`) from Google Analytics / Search Console / a crawler and
@@ -144,12 +148,39 @@ python main.py serve
 | `GET /api/health-score` | composite score + per-dimension breakdown |
 | `GET /api/segments` | user segments with estimated CLV |
 | `GET /api/customers` | purchase propensity · churn · CLV summary |
+| `GET /api/keywords` | keyword ranking factors + striking-distance opportunities |
 | `GET /api/anomalies` | flagged anomalous days |
 | `GET /api/recommendations` | prioritized recommendations |
 | `GET /api/strategy` | today / this week / this month plan |
 | `GET /dashboard` | the full HTML dashboard |
 
 Interactive docs at `http://127.0.0.1:8000/docs`.
+
+---
+
+## Keyword Ranking (learning-to-rank)
+
+A **LightGBM LambdaMART** ranker predicts how pages rank for a keyword and finds
+the highest-ROI SEO wins (`growthmind/models/ranking.py`, `python main.py keywords`):
+
+```
+Keyword ranker — NDCG@10=0.973  NDCG@5=0.957  (60 test keywords)
+
+Top ranking factors:  relevance · backlinks · domain_authority · word_count · page_speed
+
+Striking-distance opportunities (our pages at positions 4–15), by search volume:
+keyword  search_volume  keyword_difficulty  predicted_position  relevance  backlinks
+kw_0187          23123                60.0                   5      0.539         12
+kw_0012           7404                46.1                   5      0.605         54
+...
+```
+
+Unlike a plain regressor, the ranker optimizes the *order* of candidate pages
+per keyword (grouped learning-to-rank) and is evaluated with **NDCG** — the
+standard ranking metric. The split is by keyword group so no keyword leaks
+between train and test. `opportunities()` surfaces *striking-distance* keywords
+— our pages sitting just off page one — ranked by search volume, the quick wins
+an SEO team acts on first.
 
 ---
 
@@ -278,6 +309,7 @@ GrowthMind-AI/
 │   │   └── anomaly.py          # Isolation Forest anomaly detector
 │   ├── connectors/             # pluggable data sources (local, gsc, ga4)
 │   ├── models/customer.py      # purchase / churn / CLV models
+│   ├── models/ranking.py       # LightGBM keyword learning-to-rank
 │   ├── forecasting.py          # XGBoost/Holt-Winters/Prophet + backtesting
 │   ├── agent.py                # Autonomous Growth Agent
 │   ├── recommend.py            # AI recommendation engine
@@ -287,7 +319,7 @@ GrowthMind-AI/
 │   └── report.py               # self-contained HTML dashboard
 ├── api/app.py                  # FastAPI backend
 ├── frontend/                   # React + Tailwind dashboard (Vite)
-├── tests/                      # pytest suite (37 tests)
+├── tests/                      # pytest suite (44 tests)
 │   ├── test_growthmind.py
 │   ├── test_agent.py
 │   └── test_forecasting.py
@@ -300,7 +332,7 @@ GrowthMind-AI/
 ## Tests
 
 ```bash
-python -m pytest -q      # 37 tests
+python -m pytest -q      # 44 tests
 ```
 
 ---
